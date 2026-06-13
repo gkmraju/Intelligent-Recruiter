@@ -1,0 +1,30 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+.venv-*/
+venv/
+env/
+
+# Local app/config state
+.streamlit/
+.env
+.env.*
+
+# Large local/generated artifacts
+candidates.jsonl
+candidates.jsonl.gz
+models/
+submission.csv
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
