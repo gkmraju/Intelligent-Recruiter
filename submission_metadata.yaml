@@ -1,22 +1,11 @@
-﻿# Intelligent Recruiter — Project Metadata
-#
-# Fill these values before publishing the repository or sharing a release build.
-# Keep the reproduce_command aligned with README.md.
+# Intelligent Recruiter — Project Metadata
 
 team_name: "Intelligent Recruiter"
 
 primary_contact:
-  name: "Full Name"
-  email: "primary@example.com"
-  phone: "+91-XXXXXXXXXX"
-
-team_members:
-  - name: "Member 1 Full Name"
-    email: "member1@example.com"
-    role: "ML Engineer"
-  - name: "Member 2 Full Name"
-    email: "member2@example.com"
-    role: "Data Engineer"
+  name: "Krishna Murthy Raju G"
+  email: "gkmraju@zohomail.in"
+  phone: "+91-9010120707"
 
 github_repo: "https://github.com/gkmraju/Intelligent-Recruiter"
 sandbox_link: "https://github.com/gkmraju/Intelligent-Recruiter#streamlit-app"
