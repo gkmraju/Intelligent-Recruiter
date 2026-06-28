@@ -1,14 +1,13 @@
-"""RecruiterTwin-AI Streamlit dashboard."""
+﻿"""Intelligent Recruiter Streamlit dashboard."""
 
 from __future__ import annotations
 
-import io
 import json
 import sys
 import time
 from html import escape
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import streamlit as st
@@ -16,12 +15,12 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from recruitertwin.ranking_engine.pipeline_v2 import rank_candidates  # noqa: E402
-from recruitertwin.ranking_engine.reasoning import build_reasoning  # noqa: E402
-from recruitertwin.ranking_engine.scorer_v2 import score_candidate  # noqa: E402
+from intelligent_recruiter.ranking_engine.pipeline_v2 import rank_candidates  # noqa: E402
+from intelligent_recruiter.ranking_engine.reasoning import build_reasoning  # noqa: E402
+from intelligent_recruiter.ranking_engine.scorer_v2 import score_candidate  # noqa: E402
 
 MAIN_CANDIDATES = ROOT / "candidates.jsonl"
-SAMPLE_CANDIDATES = ROOT / "data" / "sample" / "redrob_sample_candidates.json"
+SAMPLE_CANDIDATES = ROOT / "data" / "sample" / "ranking_sample_candidates.json"
 ESTIMATED_MAIN_ROWS = 100_000
 MAIN_UI_UPDATE_INTERVAL_SECONDS = 0.75
 MIN_MAIN_UI_UPDATE_ROWS = 5_000
@@ -97,7 +96,6 @@ def render_processing_hud(
         "CSVVALIDATOR111000",
         "SIGNAL010011TRUST",
     ]
-    rain_markup = "".join(f"<span>{escape(line)}</span>" for line in rain_lines)
     chips = "".join(
         f'<span class="hud-chip {"active" if index == active_index else "done" if index < active_index else ""}">'
         f"{escape(label)}</span>"
@@ -108,13 +106,13 @@ def render_processing_hud(
     st.markdown(
         f"""
         <div class="processing-hud" role="status" aria-live="polite">
-          <div class="hud-rain" aria-hidden="true">{rain_markup}</div>
+          <div class="hud-rain" aria-hidden="true">{"".join(f"<span>{escape(line)}</span>" for line in rain_lines)}</div>
           <div class="hud-scanline" aria-hidden="true"></div>
           <div class="hud-content">
             <div class="hud-header">
               <div>
                 <div class="hud-kicker">Live Processing</div>
-                <div class="hud-title">RecruiterTwin Neural Ranking Engine</div>
+                <div class="hud-title">Intelligent Recruiter Ranking Engine</div>
               </div>
               <div class="hud-stage">
                 <span class="hud-pulse"></span>
@@ -240,9 +238,9 @@ def render_ranked_shortlist_table(df: pd.DataFrame, columns: list[str]) -> None:
         f'<th class="col-{escape(column.replace("_", "-"))}">{escape(SHORTLIST_COLUMN_LABELS.get(column, column.replace("_", " ").title()))}</th>'
         for column in columns
     )
-    body_rows = []
+    body_rows: list[str] = []
     for _, row in df[columns].iterrows():
-        cells = []
+        cells: list[str] = []
         for column in columns:
             formatted = _format_shortlist_value(column, row[column])
             safe_value = escape(formatted)
@@ -277,12 +275,27 @@ def build_download_payload(df: pd.DataFrame, output_choice: str) -> tuple[str, s
     return out_df.to_csv(index=False), "ranked_shortlist.csv", "text/csv"
 
 
+def _coerce_candidate_payload(payload: Any) -> list[dict[str, Any]]:
+    raw_candidates: list[Any] = cast(list[Any], payload) if isinstance(payload, list) else [payload]
+    candidates: list[dict[str, Any]] = []
+    for candidate in raw_candidates:
+        if not isinstance(candidate, dict):
+            raise ValueError("Candidate data must contain JSON objects.")
+        candidates.append(cast(dict[str, Any], candidate))
+    return candidates
+
+
 def parse_uploaded_candidates(raw: str) -> list[dict[str, Any]]:
     try:
         payload = json.loads(raw)
-        candidates = payload if isinstance(payload, list) else [payload]
+        candidates = _coerce_candidate_payload(payload)
     except json.JSONDecodeError:
-        candidates = [json.loads(line) for line in raw.splitlines() if line.strip()]
+        candidates = [
+            candidate
+            for line in raw.splitlines()
+            if line.strip()
+            for candidate in _coerce_candidate_payload(json.loads(line))
+        ]
     return candidates[:100]
 
 
@@ -332,7 +345,7 @@ def sample_or_upload_rank(candidates: list[dict[str, Any]], top_n: int) -> tuple
     top = kept[:top_n]
     filtered_at = time.perf_counter()
 
-    rows = [
+    rows: list[dict[str, Any]] = [
         {
             "rank": rank,
             "candidate_id": row["candidate_id"],
@@ -362,7 +375,7 @@ def sample_or_upload_rank(candidates: list[dict[str, Any]], top_n: int) -> tuple
         time.sleep(remaining_hud_time)
     hud_placeholder.empty()
 
-    stats = {
+    stats: dict[str, Any] = {
         "scanned": len(candidates),
         "shortlisted": len(kept),
         "skipped_honeypot": len(pots),
@@ -503,7 +516,7 @@ def main_file_rank(
     return df, latest
 
 
-st.set_page_config(page_title="RecruiterTwin-AI", page_icon="RT", layout="wide")
+st.set_page_config(page_title="Intelligent Recruiter", page_icon="IR", layout="wide")
 
 st.markdown(
     """
@@ -980,7 +993,7 @@ st.markdown(
 st.markdown(
     """
 <div class="hero">
-  <h1>Recruiter Twin - Intelligent Ranking Console</h1>
+  <h1>Intelligent Recruiter</h1>
   <div class="built">
     Dream Team Engineers<br>
     Secure | Speed | Scalable
@@ -1024,9 +1037,9 @@ if using_main_file:
     with cols[2]:
         render_metric("Expected Pool", "100,000", "candidate records")
     with cols[3]:
-        render_metric("Output", "Top 100", "submission-ready CSV")
+        render_metric("Output", "Top 100", "export-ready CSV")
 elif source == "sample":
-    candidates = json.loads(SAMPLE_CANDIDATES.read_text(encoding="utf-8"))
+    candidates = _coerce_candidate_payload(json.loads(SAMPLE_CANDIDATES.read_text(encoding="utf-8")))
     cols = st.columns(4)
     with cols[0]:
         render_metric("Source", "Sample", SAMPLE_CANDIDATES.name)
@@ -1087,8 +1100,8 @@ with controls[2]:
 with controls[3]:
     output_choice = st.selectbox(
         "Download format",
-        ["Submission CSV", "Detailed CSV"],
-        help="Submission CSV is the required candidate_id, rank, score, reasoning format.",
+        ["Export CSV", "Detailed CSV"],
+        help="Export CSV contains candidate_id, rank, score, and reasoning.",
     )
 with controls[4]:
     st.write("")

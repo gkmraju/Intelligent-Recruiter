@@ -5,10 +5,9 @@ Run this ONCE with internet access, before ranking:
 
     python scripts/download_model.py
 
-It saves sentence-transformers/all-MiniLM-L6-v2 (~80 MB) to ./models/minilm.
+It saves sentence-transformers/all-MiniLM-L6-v2 (~80 MB) to ./models/.
 The ranking step then loads it from disk with ZERO network calls, keeping the
-submission compliant with the no-network constraint (spec allows
-pre-computation outside the 5-minute window).
+export path offline and CPU friendly.
 """
 from __future__ import annotations
 

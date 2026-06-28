@@ -1,222 +1,254 @@
-<h1 align="center">RecruiterTwin-AI</h1>
+﻿<h1 align="center">Intelligent Recruiter</h1>
 
 <p align="center">
-  Intelligent Candidate Discovery & Ranking — Redrob Hackathon submission.
+  <strong>Intelligent and smart offline candidate ranking system
+</strong><br>
+  Stream a large candidate pool, rank the strongest matches, and export fact-grounded recommendations in minutes.
 </p>
 
 <p align="center">
-  Ranks 100,000 candidates against the <strong>Senior AI Engineer — Founding Team</strong> JD
-  in ~65 seconds on a laptop CPU. No GPU, no network, no LLM API calls during ranking.
+  <img src="https://img.shields.io/badge/Python-3.10%2B-2563eb" alt="Python 3.10+">
+  <img src="https://img.shields.io/badge/Runtime-CPU%20only-16a34a" alt="CPU only">
+  <img src="https://img.shields.io/badge/Network-rank%20time%20offline-15803d" alt="Offline ranking">
+  <img src="https://img.shields.io/badge/Scale-100K%20profiles-7c3aed" alt="100K profiles">
+  <img src="https://img.shields.io/badge/UI-Streamlit-f97316" alt="Streamlit">
 </p>
 
----
+<p align="center">
+  <img src="docs/assets/intelligent-recruiter-overview.svg" alt="Intelligent Recruiter product overview" width="920">
+</p>
 
-## TL;DR — reproduce the submission
+## Product Snapshot
 
-```bash
-pip install -r requirements.txt
-python rank.py --candidates ./candidates.jsonl --out ./submission.csv
-```
+Intelligent Recruiter is a working prototype for recruiter-facing candidate discovery. It turns raw candidate profiles into a ranked top-100 export with scores and concise, profile-grounded reasoning for every selected candidate.
 
-That single command (spec §10.3) streams the full candidate pool, ranks it, and writes
-the top-100 CSV in `candidate_id,rank,score,reasoning` format. Accepts `.jsonl` or
-`.jsonl.gz`. Validate before uploading:
+The core design principle is simple: **trust demonstrated career evidence over keyword claims.** The engine reads narrative work history, role titles, experience shape, availability signals, and profile plausibility before applying lexical and dense re-ranking to the strongest shortlist.
 
-```bash
-python validate_submission.py submission.csv   # validator from the hackathon bundle
-```
+| Capability | What it delivers |
+|---|---|
+| Large-pool ranking | Streams `candidates.jsonl` without loading the full pool into memory |
+| Evidence scoring | Rewards career-history proof of retrieval, ranking, evaluation, production ML, and domain fit |
+| Trap resistance | Downranks keyword stuffing, impossible profile timelines, research-only paths, and role mismatch |
+| Hybrid re-rank | Blends BM25, TF-IDF, optional MiniLM embeddings, and FAISS/NumPy vector search |
+| Recruiter output | Exports `candidate_id,rank,score,reasoning` with deterministic ordering |
+| Demo surface | Streamlit dashboard for sample uploads, ranked table review, risk flags, and CSV export |
 
-**Measured performance:** 100,000 candidates in ~65 s, < 2 GB RAM, single CPU —
-comfortably inside the 5-min / 16 GB budget.
+## Single Command Export
 
-## Why this architecture
-
-The JD itself warns that keyword matching is a planted trap. So the system is built
-around one principle: **trust what the career history evidences, not what the skills
-list claims.** Three layers, applied in order of trust:
-
-### 1. Evidence-based JD fit (primary signal)
-
-`src/recruitertwin/job_intelligence/jd_profile.py` encodes the JD as concept lexicons
-for its four hard must-haves — embeddings/retrieval, vector/hybrid search infra,
-shipped ranking systems, and evaluation rigor (NDCG/MRR/A-B) — plus LLM depth and
-production engineering. These are matched against **narrative text only** (career
-descriptions, summary, headline, titles), with diminishing-returns saturation so one
-buzzword ≠ deep experience.
-
-The JD's explicit disqualifiers are modeled directly:
-
-- **Keyword stuffers** — concepts present in the skills list but absent from every
-  career description → heavy penalty. A "Marketing Manager" with a perfect AI skill
-  list is not a fit, exactly as the JD says.
-- **Research-only careers** (academic labs, research titles across all roles) → near-zero.
-- **Consulting-firms-only careers** (TCS/Infosys/Wipro/Accenture/…) → heavy penalty;
-  currently-at-consulting with prior product experience is fine, per the JD.
-- **CV/speech/robotics specialists** without NLP/IR exposure → penalized.
-- **Title-chasers / job-hoppers** (avg completed stint < 16 months) → penalized.
-- Experience band centered on the JD's ideal 6–8 yrs (soft falloff outside 5–9).
-- Location logic: Pune/Noida > Tier-1 India > India+relocate > outside India.
-
-### 2. Honeypot / plausibility filter
-
-`features.honeypot_flags()` removes internally impossible profiles before ranking:
-
-- a skill used longer than the candidate's entire career
-- multiple "expert" proficiencies with ~zero months of use
-- career-history months wildly inconsistent with claimed years of experience
-- a single role longer than the whole career; stated durations contradicting the
-  start/end dates; future start dates
-
-Flagged candidates are forced to score 0 and can never enter the top 100
-(spec §7 disqualifies > 10% honeypots; our top-100 spot checks show zero flags).
-
-### 3. Behavioral availability multiplier (Redrob signals)
-
-A perfect-on-paper candidate who hasn't logged in for 6 months with a 5% response
-rate is not hireable. The 23 `redrob_signals` are folded into a 0.45–1.10 multiplier
-driven by activity recency, recruiter response rate, open-to-work, interview
-completion, notice period, and verification status.
-
-### Two-stage pipeline (latency–quality tradeoff)
-
-```
-Stage 1 (recall):     stream all 100K candidates → cheap evidence score
-                      → keep top-1500 shortlist via a heap (O(N log K))
-Stage 2 (precision):  hybrid re-rank of the shortlist —
-                      dense:  MiniLM embeddings (semantic meaning, optional)
-                      sparse: BM25 Okapi (exact terms, length-normalized)
-                              + TF-IDF 1-2 grams (phrase matching)
-                      → blended re-rank → top-100 + reasoning generation
-```
-
-BM25+TF-IDF on the shortlist (rather than embedding all 100K) is a deliberate
-latency-quality tradeoff: the evidence layer is already high-recall for this JD, and
-the lexical re-ranker only needs to refine ordering within the shortlist. BM25
-contributes term saturation and document-length normalization (short vs long
-profiles are compared fairly); TF-IDF bigrams add phrase-level matching like
-"hybrid search" and "learning to rank". The two are min-max normalized and
-blended 60/40 when running lexical-only.
-
-**Dense embedding layer (optional, recommended).** Run once with internet:
+From the repository root:
 
 ```bash
-python scripts/download_model.py   # saves all-MiniLM-L6-v2 (~80 MB) to ./models/
+python rank.py --candidates ./candidates.jsonl --out ./submission/intelligent_recruiter.csv
 ```
 
-Afterwards ranking loads the model from disk — zero network at ranking time,
-CPU-only, applied to the 1,500-candidate shortlist (not all 100K) to stay
-inside the 5-minute budget. Blend becomes 0.50·embedding + 0.30·BM25 +
-0.20·TF-IDF. This catches "plain-language Tier 5" candidates who describe
-ranking/retrieval work without buzzwords — dense for meaning, sparse for
-exact terms, rules for constraints the text can't express. If the model
-folder is missing, the pipeline automatically falls back to BM25+TF-IDF.
-
-#
-
-### Optional dense embedding layer (recommended)
-
-One-time setup with internet access (pre-computation is allowed by spec §10.3 —
-only the ranking step must be offline):
-
-```bash
-pip install sentence-transformers
-python scripts/download_model.py    # saves all-MiniLM-L6-v2 (~80 MB) to ./models/
-```
-
-At ranking time the model loads from disk with zero network calls and runs on
-CPU over the 1,500-candidate shortlist only (~60–90 s extra). It catches
-plain-language strong candidates — engineers who built ranking/retrieval systems
-without using buzzwords — which lexical matching misses. Blend with the model
-present: 0.50·embedding + 0.30·BM25 + 0.20·TF-IDF. If the model folder is
-missing, the pipeline automatically falls back to the BM25+TF-IDF blend with a
-logged warning (nothing breaks). The interview-ready rationale: dense for
-meaning, sparse for exact technical terms, rules for constraints text can't
-express.
-
-## Reasoning generation
-
-`reasoning.py` composes 1–2 sentence justifications **only from extracted profile
-facts** (title, years, evidenced concept areas, response rate, notice period,
-location, flagged concerns) with deterministic template variation and tone matched
-to rank — directly targeting the six Stage-4 review checks (specific facts, JD
-connection, honest concerns, no hallucination, variation, rank consistency).
-
-## Repository layout
+The command accepts `.jsonl`, `.jsonl.gz`, or JSON-array sample files. The default export contains exactly 100 ranked candidates with:
 
 ```text
-RecruiterTwin-AI/
-|-- rank.py                          # single-command submission reproducer
-|-- app/streamlit_app.py             # sandbox demo dashboard (Streamlit)
-|-- src/recruitertwin/
-|   |-- job_intelligence/
-|   |   `-- jd_profile.py            # JD-as-code: lexicons, disqualifiers, logistics
-|   `-- ranking_engine/
-|       |-- features.py              # evidence, career shape, honeypots, behavior
-|       |-- scorer_v2.py             # blended scoring + penalty multipliers
-|       |-- pipeline_v2.py           # two-stage streaming pipeline + CSV writer
-|       |-- reasoning.py             # rank-consistent reasoning generator
-|       |-- scorer.py / pipeline.py  # legacy hooks delegating to v2
-|-- data/sample/redrob_sample_candidates.json   # 50-candidate sample for the demo
-|-- submission/team_recruitertwin.csv           # generated top-100 submission
-|-- tests/                           # unit tests for traps, honeypots, reasoning
-|-- docs/                            # architecture & workflow notes
-`-- requirements.txt
+candidate_id,rank,score,reasoning
 ```
 
-## Setup
+Useful options:
 
 ```bash
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+python rank.py --candidates ./candidates.jsonl --out ./ranked.csv --top 100
+python rank.py --candidates ./candidates.jsonl --out ./ranked.csv --shortlist 1500
+python rank.py --candidates ./candidates.jsonl --out ./ranked.csv --embedding-backend none
+python rank.py --candidates ./candidates.jsonl --out ./ranked.csv --embedding-backend lsa
+python rank.py --candidates ./candidates.jsonl --out ./ranked.csv --embedding-backend minilm
 ```
 
-Dependencies are intentionally minimal: `scikit-learn` (TF-IDF), `rank-bm25` (BM25 Okapi), `pandas`,
-`streamlit` + `plotly` (demo only). The ranking step itself needs only
-scikit-learn and the standard library.
+## Quick Start
 
-## Run the sandbox demo
+```bash
+git clone https://github.com/gkmraju/Intelligent-Recruiter.git
+cd Intelligent-Recruiter
+python -m venv .venv
+```
+
+Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python rank.py --candidates .\candidates.jsonl --out .\submission\intelligent_recruiter.csv
+```
+
+macOS/Linux:
+
+```bash
+source .venv/bin/activate
+pip install -r requirements.txt
+python rank.py --candidates ./candidates.jsonl --out ./submission/intelligent_recruiter.csv
+```
+
+Smoke test on the bundled sample:
+
+```bash
+python rank.py --candidates ./data/sample/ranking_sample_candidates.json --out ./submission/sample.csv --top 20
+```
+
+## Validation
+
+Run the local validator before publishing an export:
+
+```bash
+python validate_submission.py ./submission/intelligent_recruiter.csv
+```
+
+Expected result:
+
+```text
+Submission is valid.
+```
+
+The validator checks UTF-8 CSV format, exact columns, 100 data rows, unique ranks 1-100, unique candidate IDs, valid `CAND_XXXXXXX` IDs, non-increasing scores, and deterministic tie ordering.
+
+## How Ranking Works
+
+```mermaid
+flowchart LR
+    A[Candidate JSONL] --> B[Streaming parser]
+    B --> C[Evidence scorer]
+    C --> D[Top-K heap shortlist]
+    D --> E[BM25 + TF-IDF]
+    D --> F[MiniLM or LSA embeddings]
+    F --> G[FAISS / NumPy similarity]
+    E --> H[Hybrid re-rank]
+    G --> H
+    H --> I[Top-100 export]
+    I --> J[Reasoning strings]
+```
+
+### 1. Evidence Score
+
+The first pass scans every candidate once and evaluates only cheap, deterministic signals:
+
+- must-have concept evidence in summaries, titles, and career descriptions
+- shipped retrieval, vector search, ranking, evaluation, and production ML signals
+- experience band fit and title seniority
+- preferred location and relocation signals
+- behavioral availability such as activity recency, response rate, open-to-work, interview completion, notice period, and verification
+
+This pass keeps only the strongest candidates in a fixed-size heap, so memory stays stable even on large pools.
+
+### 2. Plausibility Filter
+
+Profiles with impossible or suspicious timelines are forced to score zero before final ranking. Examples include skill durations longer than the entire career, multiple expert skills with no usage duration, career months inconsistent with claimed experience, future start dates, and single roles longer than the stated career.
+
+### 3. Hybrid Precision Layer
+
+The shortlist is re-ranked using:
+
+- **BM25 Okapi** for saturated, length-normalized term relevance
+- **TF-IDF 1-2 grams** for phrase matches such as `hybrid search` and `learning to rank`
+- **MiniLM embeddings** when the local model is available
+- **LSA fallback** when MiniLM is absent
+- **FAISS** for exact inner-product search, with a NumPy fallback if FAISS is unavailable
+
+The dense layer is optional. To enable the local MiniLM backend once:
+
+```bash
+python scripts/download_model.py
+```
+
+After download, ranking loads the model from `./models/` without network access.
+
+## Reasoning Quality
+
+Each exported row includes a 1-2 sentence explanation built only from extracted profile facts. The generator references details such as title, years of experience, evidenced technical areas, response rate, notice period, location fit, and visible concerns. It is deterministic, varied by candidate, and calibrated to rank position so a top-ranked profile sounds stronger than a borderline profile.
+
+## Performance
+
+| Dimension | Current behavior |
+|---|---|
+| Full pool size | 100,000 candidates |
+| Runtime target | Under 5 minutes wall clock |
+| Observed local runtime | About 65-70 seconds on laptop CPU |
+| Memory profile | Under 2 GB in normal runs |
+| Compute | CPU only |
+| Rank-time network | None |
+| Intermediate storage | No large generated index required |
+
+## Streamlit App
+
+Launch the recruiter dashboard:
 
 ```bash
 streamlit run app/streamlit_app.py
 ```
 
-The dashboard accepts a small candidate sample (bundled 50-candidate file or a
-JSONL/JSON upload of ≤ 100 candidates), runs the full pipeline end-to-end on CPU,
-shows the ranked shortlist with risk flags and filtered honeypots, and exports the
-ranked CSV — satisfying the spec §10.5 sandbox requirements. Deploy as-is to
-Streamlit Cloud or HuggingFace Spaces (free tier).
+The app supports:
 
-## Run the tests
+- bundled sample data
+- JSON/JSONL upload for small candidate samples
+- main data file ranking from the project root
+- progress visualization across scan, shortlist, re-rank, and export stages
+- ranked table with risk flags and reasoning
+- CSV download for review
+
+Docker demo option:
+
+```bash
+docker build -t intelligent-recruiter .
+docker run --rm -p 8501:8501 intelligent-recruiter
+```
+
+Then open `http://localhost:8501` and use the bundled sample data or upload a small JSON/JSONL candidate file.
+
+## Repository Map
+
+```text
+Intelligent-Recruiter/
+|-- rank.py                         # CLI export entry point
+|-- validate_submission.py           # CSV validation utility
+|-- Dockerfile                       # Self-contained dashboard runner
+|-- app/
+|   `-- streamlit_app.py             # Recruiter dashboard prototype
+|-- scripts/
+|   |-- download_model.py            # Optional local MiniLM download
+|   `-- generate_shortlist.py        # Small-sample export helper
+|-- src/intelligent_recruiter/
+|   |-- job_intelligence/
+|   |   `-- jd_profile.py            # Role concept profile and query text
+|   `-- ranking_engine/
+|       |-- features.py              # Evidence, behavior, plausibility checks
+|       |-- scorer_v2.py             # Stage-1 scoring and penalties
+|       |-- pipeline_v2.py           # Streaming pipeline and CSV writer
+|       |-- embedder.py              # MiniLM / LSA semantic layer
+|       |-- vector_store.py          # FAISS with NumPy fallback
+|       `-- reasoning.py             # Fact-grounded explanation builder
+|-- data/
+|   |-- contracts/                   # Stable handoff schemas
+|   `-- sample/                      # Demo-sized candidate fixtures
+|-- docs/                            # Architecture and workflow notes
+|-- submission/                      # Generated CSV exports
+|-- tests/                           # Unit and integration tests
+|-- requirements.txt
+`-- submission_metadata.yaml
+```
+
+## Quality Gates
+
+Run the core checks before pushing:
 
 ```bash
 python -m unittest discover -s tests -v
+python rank.py --candidates ./data/sample/ranking_sample_candidates.json --out ./submission/sample.csv --top 20 --embedding-backend none
+python validate_submission.py ./submission/intelligent_recruiter.csv
 ```
 
-Tests cover: strong-candidate scoring, keyword-stuffer penalty, honeypot exclusion,
-behavioral down-weighting, consulting-only penalty, reasoning specificity/variation,
-and a full pass over the bundled sample.
+The test suite covers strong-candidate scoring, keyword-stuffer penalties, plausibility filtering, behavioral downweighting, consulting-only penalties, reasoning specificity, embedding fallback behavior, LSA reuse, and FAISS search correctness.
 
-## Compute-constraint compliance (spec §3)
+## Release Checklist
 
-| Constraint | Limit | This system |
-|---|---|---|
-| Runtime | ≤ 5 min | ~70 s for 100K candidates |
-| Memory | ≤ 16 GB | < 2 GB (streaming, top-K heap) |
-| Compute | CPU only | CPU only |
-| Network | Off | Zero external calls |
-| Disk | ≤ 5 GB | No intermediate state |
+- `requirements.txt` installs cleanly in a fresh virtual environment
+- `rank.py` produces the top-100 CSV from the main candidate file
+- validation passes on the generated CSV
+- Streamlit app runs on the bundled sample
+- `submission_metadata.yaml` contains real project, contact, demo, and compute details
+- large local files remain excluded by `.gitignore`
+- no API keys, `.env` files, virtual environments, or local model folders are tracked
 
-## AI tools declaration
+## License
 
-Claude (Anthropic) was used as a development assistant for code drafting and
-documentation. All architecture decisions, JD interpretation, trap analysis, and
-validation were human-reviewed; the ranking step contains no LLM calls.
-
-## Submission checklist
-
-- [x] `submission/team_recruitertwin.csv` — validated against `validate_submission.py`
-- [x] Single reproduction command documented above
-- [x] `requirements.txt` with pinned minimums
-- [x] `submission_metadata.yaml` at repo root (fill in team details)
-- [ ] Push to GitHub + deploy `app/streamlit_app.py` to Streamlit Cloud / HF Spaces
-- [ ] Rename CSV to your registered participant ID before uploading
+MIT. See [LICENSE](LICENSE).

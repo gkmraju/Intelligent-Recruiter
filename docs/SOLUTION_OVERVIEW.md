@@ -2,7 +2,7 @@
 
 ## What We Are Building
 
-RecruiterTwin-AI is meant to be a ranking engine for hiring teams. The point is not to replace recruiters. The point is to give them a better starting point when they are dealing with too many profiles and not enough useful signal.
+Intelligent Recruiter is meant to be a ranking engine for hiring teams. The point is not to replace recruiters. The point is to give them a better starting point when they are dealing with too many profiles and not enough useful signal.
 
 ## The Main Bet
 
@@ -35,7 +35,7 @@ To get there, we expect the ranking to balance things like:
 - consistency of the candidate's background with the role
 - overall contextual fit
 
-## What Success Looks Like In The Hackathon
+## What Success Looks Like In The Prototype
 
 For the first version, success is not about building a massive platform. It is about proving a few important points clearly:
 

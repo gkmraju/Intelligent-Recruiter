@@ -1,4 +1,4 @@
-"""Hybrid scoring: evidence-weighted JD fit × behavioral availability.
+﻿"""Hybrid scoring: evidence-weighted JD fit × behavioral availability.
 
 final = base_fit × behavioral_multiplier × penalty_multipliers
 base_fit = 0.46·must_have_coverage + 0.16·tfidf_similarity
@@ -13,7 +13,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from recruitertwin.ranking_engine import features as F
+from intelligent_recruiter.ranking_engine import features as F
 
 
 def _saturate(hits: int, k: float = 2.0) -> float:

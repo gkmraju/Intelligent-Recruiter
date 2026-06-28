@@ -1,4 +1,4 @@
-"""End-to-end ranking pipeline.
+﻿"""End-to-end ranking pipeline.
 
 Two-stage architecture chosen for the 5-min / 16 GB / CPU-only budget:
 
@@ -22,10 +22,14 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
-from recruitertwin.job_intelligence.jd_profile import JD_QUERY_TEXT
-from recruitertwin.ranking_engine.features import candidate_texts
-from recruitertwin.ranking_engine import scorer_v2
-from recruitertwin.ranking_engine.reasoning import build_reasoning
+import re as _re
+
+from intelligent_recruiter.job_intelligence.jd_profile import JD_QUERY_TEXT
+from intelligent_recruiter.ranking_engine.features import candidate_texts
+from intelligent_recruiter.ranking_engine import scorer_v2
+from intelligent_recruiter.ranking_engine.reasoning import build_reasoning
+
+_TOKEN_RE = _re.compile(r"[a-z0-9][a-z0-9+#./-]*")
 
 try:
     import orjson
@@ -123,22 +127,22 @@ def rank_candidates(
     # search", "learning to rank"). The two lexical views are min-max
     # normalized and blended.
     report("rerank")
-    import re as _re
-
     from rank_bm25 import BM25Okapi
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.metrics.pairwise import cosine_similarity
 
-    token_re = _re.compile(r"[a-z0-9][a-z0-9+#./-]*")
     texts = [item[3] for item in shortlist]
     jd_text = JD_QUERY_TEXT.lower()
 
-    bm25 = BM25Okapi([token_re.findall(t) for t in texts])
-    bm25_raw = bm25.get_scores(token_re.findall(jd_text))
+    bm25 = BM25Okapi([_TOKEN_RE.findall(t) for t in texts])
+    bm25_raw = bm25.get_scores(_TOKEN_RE.findall(jd_text))
     lo, hi = float(min(bm25_raw)), float(max(bm25_raw))
     bm25_norm = [(s - lo) / (hi - lo) if hi > lo else 0.0 for s in bm25_raw]
 
-    vec = TfidfVectorizer(ngram_range=(1, 2), min_df=2, max_features=60000,
+    # min_df=2 makes sense for large shortlists but silently drops rare technical
+    # terms (ndcg, ltr, hnsw…) when the corpus is small (e.g. demo/upload mode).
+    _min_df = 2 if len(texts) >= 50 else 1
+    vec = TfidfVectorizer(ngram_range=(1, 2), min_df=_min_df, max_features=60000,
                           sublinear_tf=True)
     X = vec.fit_transform(texts + [jd_text])
     tfidf_sims = cosine_similarity(X[-1], X[:-1]).ravel()
@@ -146,13 +150,23 @@ def rank_candidates(
     # Dense layer: lightweight embeddings (MiniLM if downloaded, else a
     # pure-sklearn LSA embedding) indexed and queried through FAISS.
     # Catches plain-language strong candidates that lexical matching misses.
-    from recruitertwin.ranking_engine.embedder import (LightweightEmbedder,
-                                                       semantic_similarities)
-    from recruitertwin.ranking_engine.vector_store import FAISS_AVAILABLE
-    emb = semantic_similarities(texts, jd_text, backend=embedding_backend)
+    from intelligent_recruiter.ranking_engine.embedder import (
+        LightweightEmbedder,
+        semantic_similarities,
+        semantic_similarities_from_tfidf_matrix,
+    )
+    from intelligent_recruiter.ranking_engine.vector_store import FAISS_AVAILABLE
+    if embedding_backend == "none":
+        resolved_backend = "none"
+        emb = None
+    else:
+        resolved_backend = LightweightEmbedder(embedding_backend).backend
+        if resolved_backend == "lsa":
+            emb = semantic_similarities_from_tfidf_matrix(X)
+        else:
+            emb = semantic_similarities(texts, jd_text, backend=embedding_backend)
     if verbose:
-        backend = "none" if emb is None else LightweightEmbedder(embedding_backend).backend
-        print(f"  dense layer: embeddings={backend}, "
+        print(f"  dense layer: embeddings={resolved_backend}, "
               f"index={'faiss' if FAISS_AVAILABLE else 'numpy-fallback'}")
 
     refined = []

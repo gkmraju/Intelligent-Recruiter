@@ -1,4 +1,4 @@
-# Team Workflow
+﻿# Team Workflow
 
 ## Goal
 
@@ -18,8 +18,8 @@ This workflow is meant to keep the team moving quickly without creating merge co
 
 Best parallel split for this repo:
 
-- Person 2 works mainly in `src/recruitertwin/job_intelligence/`
-- Person 3 works mainly in `src/recruitertwin/ranking_engine/`
+- Person 2 works mainly in `src/intelligent_recruiter/job_intelligence/`
+- Person 3 works mainly in `src/intelligent_recruiter/ranking_engine/`
 - Person 4 works mainly in `app/`
 
 Shared caution zones:

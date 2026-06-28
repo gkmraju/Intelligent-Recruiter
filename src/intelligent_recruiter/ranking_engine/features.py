@@ -1,4 +1,4 @@
-"""Feature extraction for a single candidate record.
+﻿"""Feature extraction for a single candidate record.
 
 Three layers, in deliberate order of trust:
 
@@ -8,37 +8,102 @@ Three layers, in deliberate order of trust:
 2. PLAUSIBILITY — honeypot detection. Internally inconsistent profiles
    (skill used longer than total career, "expert" with zero months, career
    timeline that doesn't add up) are forced out of contention.
-3. AVAILABILITY — Redrob behavioral signals as a multiplier. A perfect
+3. AVAILABILITY — behavioral signals as a multiplier. A perfect
    profile that never logs in and never replies is not hireable.
 """
 
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Any, TypeAlias, cast
 
-from recruitertwin.job_intelligence import jd_profile as jd
+from intelligent_recruiter.job_intelligence import jd_profile as jd
 
-REFERENCE_DATE = date(2026, 6, 11)
+CandidateRecord: TypeAlias = dict[str, Any]
+ObjectRecord: TypeAlias = dict[str, Any]
+
+REFERENCE_DATE = date.today()
+MUST_CONCEPT_ITEMS = tuple(jd.MUST_HAVE_CONCEPTS.items())
+MUST_CONCEPT_TERM_GROUPS = tuple(jd.MUST_HAVE_CONCEPTS.values())
+MUST_SKILL_TERM_GROUPS = tuple(
+    tuple(term.strip() for term in terms) for terms in jd.MUST_HAVE_CONCEPTS.values()
+)
+NICE_CONCEPT_ITEMS = tuple(jd.NICE_TO_HAVE_CONCEPTS.items())
+
+
+def _object(value: Any) -> ObjectRecord:
+    return cast(ObjectRecord, value) if isinstance(value, dict) else {}
+
+
+def _objects(value: Any) -> list[ObjectRecord]:
+    if not isinstance(value, list):
+        return []
+    items = cast(list[Any], value)
+    return [cast(ObjectRecord, item) for item in items if isinstance(item, dict)]
+
+
+def _profile(c: CandidateRecord) -> ObjectRecord:
+    return _object(c.get("profile"))
+
+
+def _career_history(c: CandidateRecord) -> list[ObjectRecord]:
+    return _objects(c.get("career_history"))
+
+
+def _skills(c: CandidateRecord) -> list[ObjectRecord]:
+    return _objects(c.get("skills"))
+
+
+def _signals(c: CandidateRecord) -> ObjectRecord:
+    return _object(c.get("redrob_signals"))
+
+
+def _text(record: ObjectRecord, key: str) -> str:
+    value = record.get(key)
+    return value if isinstance(value, str) else ""
+
+
+def _number(record: ObjectRecord, key: str, default: float = 0.0) -> float:
+    value = record.get(key)
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return default
+    return default
+
+
+def _integer(record: ObjectRecord, key: str, default: int = 0) -> int:
+    return int(_number(record, key, float(default)))
+
+
+def _boolean(record: ObjectRecord, key: str) -> bool:
+    return bool(record.get(key))
 
 
 # ---------------------------------------------------------------------------
 # text assembly
 # ---------------------------------------------------------------------------
 
-def candidate_texts(c: dict[str, Any]) -> tuple[str, str]:
+def candidate_texts(c: CandidateRecord) -> tuple[str, str]:
     """Return (evidence_text, listed_skills_text), both lowercased.
 
     evidence_text = narrative fields a candidate can't trivially stuff
     (career descriptions, summary, headline, titles).
     """
-    p = c.get("profile", {}) or {}
-    parts = [p.get("headline", ""), p.get("summary", ""), p.get("current_title", "")]
-    for job in c.get("career_history", []) or []:
-        parts.append(job.get("title", ""))
-        parts.append(job.get("description", ""))
+    p = _profile(c)
+    parts: list[str] = [
+        _text(p, "headline"),
+        _text(p, "summary"),
+        _text(p, "current_title"),
+    ]
+    for job in _career_history(c):
+        parts.append(_text(job, "title"))
+        parts.append(_text(job, "description"))
     evidence = " \n ".join(x for x in parts if x).lower()
-    skills = " , ".join((s.get("name", "") or "") for s in (c.get("skills") or [])).lower()
+    skills = " , ".join(_text(skill, "name") for skill in _skills(c)).lower()
     return evidence, skills
 
 
@@ -46,23 +111,25 @@ def _hits(text: str, terms: list[str]) -> int:
     return sum(1 for t in terms if t in text)
 
 
+def _has_hit(text: str, terms: tuple[str, ...] | list[str]) -> bool:
+    return any(term in text for term in terms)
+
+
 # ---------------------------------------------------------------------------
 # 1. evidence features
 # ---------------------------------------------------------------------------
 
-def evidence_features(c: dict[str, Any]) -> dict[str, Any]:
+def evidence_features(c: CandidateRecord) -> dict[str, Any]:
     evidence, skills_text = candidate_texts(c)
-    must: dict[str, int] = {}
-    for name, terms in jd.MUST_HAVE_CONCEPTS.items():
-        must[name] = _hits(evidence, terms)
-    nice = {name: _hits(evidence, terms) for name, terms in jd.NICE_TO_HAVE_CONCEPTS.items()}
+    must = {name: _hits(evidence, terms) for name, terms in MUST_CONCEPT_ITEMS}
+    nice = {name: _hits(evidence, terms) for name, terms in NICE_CONCEPT_ITEMS}
 
     # skills-list-only matches (the stuffer signature): concept appears in the
     # skills list but never in any narrative text.
     listed_only = 0
-    for terms in jd.MUST_HAVE_CONCEPTS.values():
-        in_list = any(t.strip() in skills_text for t in terms)
-        in_evidence = any(t in evidence for t in terms)
+    for skill_terms, evidence_terms in zip(MUST_SKILL_TERM_GROUPS, MUST_CONCEPT_TERM_GROUPS):
+        in_list = _has_hit(skills_text, skill_terms)
+        in_evidence = _has_hit(evidence, evidence_terms)
         if in_list and not in_evidence:
             listed_only += 1
 
@@ -83,13 +150,13 @@ def evidence_features(c: dict[str, Any]) -> dict[str, Any]:
 # career-shape features (disqualifiers from the JD)
 # ---------------------------------------------------------------------------
 
-def career_features(c: dict[str, Any]) -> dict[str, Any]:
-    p = c.get("profile", {}) or {}
-    history = c.get("career_history", []) or []
-    title = (p.get("current_title") or "").lower()
+def career_features(c: CandidateRecord) -> dict[str, Any]:
+    p = _profile(c)
+    history = _career_history(c)
+    title = _text(p, "current_title").lower()
 
-    companies = [(j.get("company") or "").lower() for j in history]
-    titles = [(j.get("title") or "").lower() for j in history]
+    companies = [_text(j, "company").lower() for j in history]
+    titles = [_text(j, "title").lower() for j in history]
 
     def is_consulting(name: str) -> bool:
         return any(f in name for f in jd.CONSULTING_FIRMS)
@@ -111,7 +178,7 @@ def career_features(c: dict[str, Any]) -> dict[str, Any]:
     eng_title = any(t in title for t in jd.ENGINEERING_TITLE_TERMS)
 
     # Title-chaser / job-hopper: average completed-stint tenure.
-    durations = [j.get("duration_months") or 0 for j in history if not j.get("is_current")]
+    durations = [_integer(j, "duration_months") for j in history if not _boolean(j, "is_current")]
     avg_tenure = (sum(durations) / len(durations)) if durations else 36.0
     hopper = len(history) >= 3 and avg_tenure < 16
 
@@ -131,29 +198,29 @@ def career_features(c: dict[str, Any]) -> dict[str, Any]:
 # 2. honeypot / plausibility checks
 # ---------------------------------------------------------------------------
 
-def honeypot_flags(c: dict[str, Any]) -> list[str]:
+def honeypot_flags(c: CandidateRecord) -> list[str]:
     flags: list[str] = []
-    p = c.get("profile", {}) or {}
-    yoe = float(p.get("years_of_experience") or 0)
+    p = _profile(c)
+    yoe = _number(p, "years_of_experience")
     total_months = yoe * 12.0
-    skills = c.get("skills") or []
-    history = c.get("career_history") or []
+    skills = _skills(c)
+    history = _career_history(c)
 
     # Skill used longer than the entire career (with slack).
-    over = [s for s in skills if (s.get("duration_months") or 0) > total_months + 9]
+    over = [skill for skill in skills if _integer(skill, "duration_months") > total_months + 9]
     if over:
         flags.append("skill_duration_exceeds_career")
 
     # "Expert" proficiency with ~zero actual usage.
     zero_experts = [
-        s for s in skills
-        if (s.get("proficiency") == "expert") and (s.get("duration_months") or 0) <= 1
+        skill for skill in skills
+        if _text(skill, "proficiency") == "expert" and _integer(skill, "duration_months") <= 1
     ]
     if len(zero_experts) >= 3:
         flags.append("expert_skills_with_zero_usage")
 
     # Career timeline wildly inconsistent with claimed experience.
-    hist_months = sum(j.get("duration_months") or 0 for j in history)
+    hist_months = sum(_integer(j, "duration_months") for j in history)
     if history and total_months > 0:
         if hist_months > total_months * 1.9 + 24:
             flags.append("history_exceeds_claimed_experience")
@@ -162,20 +229,20 @@ def honeypot_flags(c: dict[str, Any]) -> list[str]:
             flags.append("claimed_experience_unsupported")
 
     # Tenure at a single role longer than the claimed total career.
-    if any((j.get("duration_months") or 0) > total_months + 12 for j in history):
+    if any(_integer(j, "duration_months") > total_months + 12 for j in history):
         flags.append("single_role_exceeds_career")
 
     # Date arithmetic check: stated duration vs actual start/end dates.
     for j in history:
         try:
-            start = date.fromisoformat(j["start_date"])
+            start = date.fromisoformat(_text(j, "start_date"))
             end = (
                 REFERENCE_DATE
-                if j.get("is_current") or not j.get("end_date")
-                else date.fromisoformat(j["end_date"])
+                if _boolean(j, "is_current") or not _text(j, "end_date")
+                else date.fromisoformat(_text(j, "end_date"))
             )
             real_months = (end.year - start.year) * 12 + (end.month - start.month)
-            stated = j.get("duration_months") or 0
+            stated = _integer(j, "duration_months")
             if abs(real_months - stated) > 18:
                 flags.append("duration_date_mismatch")
                 break
@@ -192,15 +259,15 @@ def honeypot_flags(c: dict[str, Any]) -> list[str]:
 # 3. behavioral availability multiplier (0.45 .. 1.10)
 # ---------------------------------------------------------------------------
 
-def behavioral_multiplier(c: dict[str, Any]) -> tuple[float, dict[str, Any]]:
-    s = c.get("redrob_signals", {}) or {}
+def behavioral_multiplier(c: CandidateRecord) -> tuple[float, dict[str, Any]]:
+    s = _signals(c)
     m = 1.0
     info: dict[str, Any] = {}
 
     # Recency of activity — dominant availability signal.
     days_inactive = 9999
     try:
-        last = date.fromisoformat(s.get("last_active_date", ""))
+        last = date.fromisoformat(_text(s, "last_active_date"))
         days_inactive = (REFERENCE_DATE - last).days
     except Exception:
         pass
@@ -216,7 +283,7 @@ def behavioral_multiplier(c: dict[str, Any]) -> tuple[float, dict[str, Any]]:
     else:
         m *= 0.55
 
-    rr = float(s.get("recruiter_response_rate") or 0.0)
+    rr = _number(s, "recruiter_response_rate")
     info["response_rate"] = rr
     if rr >= 0.6:
         m *= 1.05
@@ -227,13 +294,13 @@ def behavioral_multiplier(c: dict[str, Any]) -> tuple[float, dict[str, Any]]:
     else:
         m *= 0.70
 
-    if s.get("open_to_work_flag"):
+    if _boolean(s, "open_to_work_flag"):
         m *= 1.04
-    icr = s.get("interview_completion_rate")
-    if icr is not None and icr >= 0 and icr < 0.5:
+    icr = _number(s, "interview_completion_rate", -1.0)
+    if 0 <= icr < 0.5:
         m *= 0.85
 
-    notice = int(s.get("notice_period_days") or 0)
+    notice = _integer(s, "notice_period_days")
     info["notice_days"] = notice
     if notice <= 30:
         m *= 1.03
@@ -242,7 +309,7 @@ def behavioral_multiplier(c: dict[str, Any]) -> tuple[float, dict[str, Any]]:
     else:
         m *= 0.90
 
-    if s.get("verified_email") and s.get("verified_phone"):
+    if _boolean(s, "verified_email") and _boolean(s, "verified_phone"):
         m *= 1.01
 
     return max(0.45, min(m, 1.10)), info
@@ -252,11 +319,11 @@ def behavioral_multiplier(c: dict[str, Any]) -> tuple[float, dict[str, Any]]:
 # location & experience fit
 # ---------------------------------------------------------------------------
 
-def location_fit(c: dict[str, Any]) -> tuple[float, str]:
-    p = c.get("profile", {}) or {}
-    loc = (p.get("location") or "").lower()
-    country = (p.get("country") or "").lower()
-    relocate = bool((c.get("redrob_signals") or {}).get("willing_to_relocate"))
+def location_fit(c: CandidateRecord) -> tuple[float, str]:
+    p = _profile(c)
+    loc = _text(p, "location").lower()
+    country = _text(p, "country").lower()
+    relocate = _boolean(_signals(c), "willing_to_relocate")
 
     if any(city in loc for city in jd.PREFERRED_CITIES):
         return 1.0, "in a preferred hub (Pune/Noida)"

@@ -5,26 +5,81 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.pyright/
+.coverage
+htmlcov/
 
-# Virtual environments
+# Virtual environments and local Python tooling
 .venv/
 .venv-*/
 venv/
 env/
+ENV/
+pip-wheel-metadata/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets.*
+credentials.*
+service-account*.json
+token*.json
 
 # Local app/config state
 .streamlit/
-.env
-.env.*
+.agents/
+.codex/
 
-# Large local/generated artifacts
+# Large source data and local model artifacts
 candidates.jsonl
 candidates.jsonl.gz
+*.jsonl.gz
 models/
+*.bin
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.faiss
+*.index
+
+# Generated exports and temporary run outputs
 submission.csv
+ranked.csv
+ranked_*.csv
+*_shortlist.csv
+submission/sample.csv
+submission/ranked_shortlist.csv
+
+# Internal notes and audit scratchpads
+AUDIT_REPORT.md
+Worksheet_Summary.md
+TODAY_WORK_SUMMARY.md
+
+# Archives and packaged builds
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+tmp/
+temp/
 
 # OS/editor noise
 .DS_Store
 Thumbs.db
+desktop.ini
 .vscode/
 .idea/

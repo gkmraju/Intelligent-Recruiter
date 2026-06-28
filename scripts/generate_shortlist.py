@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
-"""Convenience wrapper: rank the bundled sample and write submission CSV.
+﻿#!/usr/bin/env python3
+"""Convenience wrapper: rank the bundled sample and write a demo CSV.
 
-For the real submission run:  python rank.py --candidates candidates.jsonl --out submission.csv
+For the full export run:  python rank.py --candidates candidates.jsonl --out ranked.csv
 """
 from __future__ import annotations
 
@@ -12,11 +12,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from recruitertwin.ranking_engine.scorer_v2 import score_candidate
-from recruitertwin.ranking_engine.reasoning import build_reasoning
-from recruitertwin.ranking_engine.pipeline_v2 import write_submission
+from intelligent_recruiter.ranking_engine.scorer_v2 import score_candidate  # noqa: E402
+from intelligent_recruiter.ranking_engine.reasoning import build_reasoning  # noqa: E402
+from intelligent_recruiter.ranking_engine.pipeline_v2 import write_submission  # noqa: E402
 
-sample = ROOT / "data" / "sample" / "redrob_sample_candidates.json"
+sample = ROOT / "data" / "sample" / "ranking_sample_candidates.json"
 cands = json.loads(sample.read_text())
 scored = [score_candidate(c) for c in cands if not score_candidate(c)["honeypot"]]
 scored.sort(key=lambda r: (-r["final_score"], r["candidate_id"]))

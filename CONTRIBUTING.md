@@ -1,6 +1,6 @@
-# Contributing to RecruiterTwin-AI
+﻿# Contributing to Intelligent Recruiter
 
-This project is being built by a small hackathon team, so the workflow needs to stay simple, fast, and predictable.
+This project is built by a small, focused team. The workflow is intentionally simple, fast, and predictable.
 
 The main rule is this:
 
@@ -14,7 +14,7 @@ The main rule is this:
 
 Primary folder:
 
-- `src/recruitertwin/job_intelligence/`
+- `src/intelligent_recruiter/job_intelligence/`
 
 You own:
 
@@ -28,7 +28,7 @@ Before changing output keys in `data/contracts/job_intelligence_output.json`, al
 
 Primary folders:
 
-- `src/recruitertwin/ranking_engine/`
+- `src/intelligent_recruiter/ranking_engine/`
 - `submission/`
 
 You own:
@@ -126,13 +126,13 @@ Good examples:
 - `Build dashboard upload shell`
 - `Update ranked output contract`
 
-## Demo Readiness
+## Release Readiness
 
-Closer to submission, prioritize changes that improve:
+Before any release cut, prioritize changes that improve:
 
 - end-to-end flow
 - stability
 - clarity of ranked output
-- ease of presentation
+- ease of use
 
-Avoid large refactors right before demo day unless they remove a serious blocker.
+Avoid large refactors on a release branch unless they remove a serious blocker.

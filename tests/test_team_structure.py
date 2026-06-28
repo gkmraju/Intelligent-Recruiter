@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 import unittest
@@ -14,8 +14,8 @@ class TeamStructureTestCase(unittest.TestCase):
             REPO_ROOT / "docs" / "TEAM_STRUCTURE.md",
             REPO_ROOT / "data" / "contracts" / "job_intelligence_output.json",
             REPO_ROOT / "data" / "contracts" / "ranked_output_columns.csv",
-            REPO_ROOT / "src" / "recruitertwin" / "job_intelligence" / "extractor.py",
-            REPO_ROOT / "src" / "recruitertwin" / "ranking_engine" / "pipeline.py",
+            REPO_ROOT / "src" / "intelligent_recruiter" / "job_intelligence" / "extractor.py",
+            REPO_ROOT / "src" / "intelligent_recruiter" / "ranking_engine" / "pipeline.py",
         ]
         for path in expected_paths:
             self.assertTrue(path.exists(), f"Missing expected scaffold path: {path}")

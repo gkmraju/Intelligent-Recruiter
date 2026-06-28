@@ -1,4 +1,4 @@
-"""Job-DNA for the Redrob 'Senior AI Engineer — Founding Team' JD.
+"""Role-DNA for the Senior AI Engineer founding-team profile.
 
 This module encodes what the JD *means*, not just what it says:
 - must-have concept groups (evidence must appear in career-history text,

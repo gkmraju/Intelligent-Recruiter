@@ -1,4 +1,4 @@
-# Architecture Blueprint
+﻿# Architecture Blueprint
 
 ## Purpose
 
@@ -34,7 +34,7 @@ Dashboard, insights, CSV/PDF export
 
 Folder:
 
-- `src/recruitertwin/job_intelligence/`
+- `src/intelligent_recruiter/job_intelligence/`
 
 Input:
 
@@ -52,7 +52,7 @@ Main responsibility:
 
 Folder:
 
-- `src/recruitertwin/ranking_engine/`
+- `src/intelligent_recruiter/ranking_engine/`
 - `submission/`
 
 Input:
@@ -124,7 +124,7 @@ Consumed by:
 
 ## Starter Implementation Notes
 
-- `src/recruitertwin/ranker.py` is kept as a baseline reference, not as the final architecture.
+- `src/intelligent_recruiter/ranker.py` is kept as a baseline reference, not as the final architecture.
 - The new team folders are the preferred path for future work.
 - The baseline script in `scripts/generate_shortlist.py` helps the repo stay runnable while the team builds the real pipeline.
 

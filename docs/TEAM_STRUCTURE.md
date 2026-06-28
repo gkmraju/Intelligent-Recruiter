@@ -99,7 +99,7 @@ Responsibilities:
 - keep the team aligned on scope
 - approve shared data contracts
 - review tradeoffs across all three modules
-- protect demo quality and submission clarity
+- protect demo quality and release clarity
 - prepare the final README, walkthrough, and presentation story
 
 ## Working Agreement

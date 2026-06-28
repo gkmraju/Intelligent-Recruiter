@@ -1,7 +1,7 @@
-"""Legacy hook — delegates to the v2 two-stage pipeline."""
+﻿"""Legacy hook — delegates to the v2 two-stage pipeline."""
 from __future__ import annotations
 
-from recruitertwin.ranking_engine.scorer_v2 import score_candidate
+from intelligent_recruiter.ranking_engine.scorer_v2 import score_candidate
 
 
 def shortlist_candidates(job_dna: dict, candidates: list[dict]) -> list[dict]:

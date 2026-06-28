@@ -1,4 +1,4 @@
-"""Tests for the v2 evidence-based ranking pipeline."""
+﻿"""Tests for the v2 evidence-based ranking pipeline."""
 from __future__ import annotations
 
 import json
@@ -9,9 +9,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from recruitertwin.ranking_engine import features as F
-from recruitertwin.ranking_engine.scorer_v2 import score_candidate
-from recruitertwin.ranking_engine.reasoning import build_reasoning
+from intelligent_recruiter.ranking_engine import features as F  # noqa: E402
+from intelligent_recruiter.ranking_engine.scorer_v2 import score_candidate  # noqa: E402
+from intelligent_recruiter.ranking_engine.reasoning import build_reasoning  # noqa: E402
 
 
 def _base_candidate(**over):
@@ -107,7 +107,7 @@ class TestScorer(unittest.TestCase):
 
 class TestSampleData(unittest.TestCase):
     def test_pipeline_on_bundled_sample(self):
-        sample = ROOT / "data" / "sample" / "redrob_sample_candidates.json"
+        sample = ROOT / "data" / "sample" / "ranking_sample_candidates.json"
         cands = json.loads(sample.read_text())
         results = [score_candidate(c) for c in cands]
         self.assertEqual(len(results), len(cands))
@@ -115,15 +115,11 @@ class TestSampleData(unittest.TestCase):
         self.assertGreater(len(scores), 5, "model must differentiate candidates")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestEmbeddingFallback(unittest.TestCase):
     def test_dense_layer_always_available(self):
         """The lightweight embedder must work with no downloaded model
         (LSA backend) and return one similarity per input text."""
-        from recruitertwin.ranking_engine.embedder import (
+        from intelligent_recruiter.ranking_engine.embedder import (
             LightweightEmbedder, semantic_similarities,
         )
         emb = LightweightEmbedder()
@@ -135,10 +131,34 @@ class TestEmbeddingFallback(unittest.TestCase):
         self.assertEqual(len(sims), len(texts))
         self.assertTrue(all(0.0 <= s <= 1.0 for s in sims))
 
+    def test_reused_tfidf_lsa_matches_standalone_lsa(self):
+        from sklearn.feature_extraction.text import TfidfVectorizer
+        from intelligent_recruiter.ranking_engine.embedder import (
+            semantic_similarities,
+            semantic_similarities_from_tfidf_matrix,
+        )
+
+        texts = [
+            "built embeddings retrieval with faiss vector search",
+            "professional pastry chef and baker",
+            "ranking systems ndcg evaluation production",
+        ]
+        query = "embeddings retrieval ranking faiss"
+        vec = TfidfVectorizer(
+            ngram_range=(1, 2),
+            min_df=2,
+            max_features=60000,
+            sublinear_tf=True,
+        )
+        X = vec.fit_transform(texts + [query])
+        reused = semantic_similarities_from_tfidf_matrix(X)
+        standalone = semantic_similarities(texts, query, backend="lsa")
+        self.assertEqual(reused, standalone)
+
 
 class TestEmbedderFallback(unittest.TestCase):
     def test_relevant_text_scores_higher(self):
-        from recruitertwin.ranking_engine import embedder
+        from intelligent_recruiter.ranking_engine import embedder
         sims = embedder.semantic_similarities(
             ["search ranking retrieval embeddings systems engineer",
              "cooking recipes and restaurant kitchen management"],
@@ -150,7 +170,7 @@ class TestEmbedderFallback(unittest.TestCase):
 class TestFaissVectorStore(unittest.TestCase):
     def test_search_and_similarities(self):
         import numpy as np
-        from recruitertwin.ranking_engine.vector_store import FaissVectorStore
+        from intelligent_recruiter.ranking_engine.vector_store import FaissVectorStore
         rng = np.random.default_rng(0)
         vecs = rng.standard_normal((20, 8)).astype("float32")
         vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
@@ -164,3 +184,7 @@ class TestFaissVectorStore(unittest.TestCase):
         sims = store.similarities(q)
         self.assertEqual(len(sims), 20)
         self.assertAlmostEqual(float(sims[3]), 1.0, places=4)
+
+
+if __name__ == "__main__":
+    unittest.main()

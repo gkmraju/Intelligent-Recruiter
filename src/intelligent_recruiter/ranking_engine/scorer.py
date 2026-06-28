@@ -1,7 +1,7 @@
-"""Legacy hook — delegates to the v2 evidence-based scorer."""
+﻿"""Legacy hook — delegates to the v2 evidence-based scorer."""
 from __future__ import annotations
 
-from recruitertwin.ranking_engine.scorer_v2 import score_candidate as _score
+from intelligent_recruiter.ranking_engine.scorer_v2 import score_candidate as _score
 
 
 def score_candidate(job_dna: dict, candidate: dict) -> dict:
