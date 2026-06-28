@@ -51,7 +51,7 @@ pip install -r requirements.txt
 Run the main export:
 
 ```bash
-python rank.py --candidates ./candidates.jsonl --out ./submission/intelligent_recruiter.csv
+python rank.py --candidates ./candidates.jsonl --out ./submission/team_2892.csv
 ```
 
 Run a sample smoke test:
@@ -63,7 +63,7 @@ python rank.py --candidates ./data/sample/ranking_sample_candidates.json --out .
 Validate the main export:
 
 ```bash
-python validate_submission.py ./submission/intelligent_recruiter.csv
+python validate_submission.py ./submission/team_2892.csv
 ```
 
 Run tests:

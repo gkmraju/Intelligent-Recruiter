@@ -1,4 +1,4 @@
-# Intelligent Recruiter — Project Metadata
+﻿# Intelligent Recruiter — Project Metadata
 #
 # Fill these values before publishing the repository or sharing a release build.
 # Keep the reproduce_command aligned with README.md.
@@ -21,7 +21,7 @@ team_members:
 github_repo: "https://github.com/gkmraju/Intelligent-Recruiter"
 sandbox_link: "https://github.com/gkmraju/Intelligent-Recruiter#streamlit-app"
 
-reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./submission/intelligent_recruiter.csv"
+reproduce_command: "python rank.py --candidates ./candidates.jsonl --out ./submission/team_2892.csv"
 
 compute:
   platform: "Local workstation"

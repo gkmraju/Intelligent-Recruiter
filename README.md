@@ -38,7 +38,7 @@ The core design principle is simple: **trust demonstrated career evidence over k
 From the repository root:
 
 ```bash
-python rank.py --candidates ./candidates.jsonl --out ./submission/intelligent_recruiter.csv
+python rank.py --candidates ./candidates.jsonl --out ./submission/team_2892.csv
 ```
 
 The command accepts `.jsonl`, `.jsonl.gz`, or JSON-array sample files. The default export contains exactly 100 ranked candidates with:
@@ -70,7 +70,7 @@ Windows PowerShell:
 ```powershell
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-python rank.py --candidates .\candidates.jsonl --out .\submission\intelligent_recruiter.csv
+python rank.py --candidates .\candidates.jsonl --out .\submission\team_2892.csv
 ```
 
 macOS/Linux:
@@ -78,7 +78,7 @@ macOS/Linux:
 ```bash
 source .venv/bin/activate
 pip install -r requirements.txt
-python rank.py --candidates ./candidates.jsonl --out ./submission/intelligent_recruiter.csv
+python rank.py --candidates ./candidates.jsonl --out ./submission/team_2892.csv
 ```
 
 Smoke test on the bundled sample:
@@ -92,7 +92,7 @@ python rank.py --candidates ./data/sample/ranking_sample_candidates.json --out .
 Run the local validator before publishing an export:
 
 ```bash
-python validate_submission.py ./submission/intelligent_recruiter.csv
+python validate_submission.py ./submission/team_2892.csv
 ```
 
 Expected result:
@@ -234,7 +234,7 @@ Run the core checks before pushing:
 ```bash
 python -m unittest discover -s tests -v
 python rank.py --candidates ./data/sample/ranking_sample_candidates.json --out ./submission/sample.csv --top 20 --embedding-backend none
-python validate_submission.py ./submission/intelligent_recruiter.csv
+python validate_submission.py ./submission/team_2892.csv
 ```
 
 The test suite covers strong-candidate scoring, keyword-stuffer penalties, plausibility filtering, behavioral downweighting, consulting-only penalties, reasoning specificity, embedding fallback behavior, LSA reuse, and FAISS search correctness.
